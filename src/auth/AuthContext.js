@@ -23,12 +23,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const handleStorageChange = () => {
-      const token = localStorage.getItem("userToken");
-      if (token) {
-        setCurrentUser({ token });
-      } else {
-        setCurrentUser(null);
+    const handleStorageChange = (event) => {
+      // Check for changes specifically to 'userToken'
+      if (event.key === "userToken") {
+        const token = localStorage.getItem("userToken");
+        // If token is falsy (null, undefined, empty string), set current user to null
+        if (!token) {
+          setCurrentUser(null);
+        } else {
+          setCurrentUser({ token });
+        }
       }
     };
 
