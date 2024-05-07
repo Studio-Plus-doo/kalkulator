@@ -12,17 +12,26 @@ import {
   TableRow,
   Paper,
 } from "@mui/material";
+import {
+  CellHeadingStyle,
+  CellHeadingStyle2,
+  CellHeadingStyle3,
+  CellStyle,
+  CellStyle2,
+} from "./TableStyles";
 
 function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
+  // console.log("ROWDATA JE: ", rowData);
+
   const [pncValues, setPncValues] = useState(Array(12).fill(""));
   const [vpcValues, setVpcValues] = useState(Array(12).fill(""));
   const [ppkmValues, setPpkmValues] = useState(Array(12).fill(""));
   const [pprValues, setPprValues] = useState(Array(12).fill(""));
   const [msaValues, setMsaValues] = useState(Array(12).fill(""));
+
   const [isSaveDisabled, setIsSaveDisabled] = useState(true);
 
   const [oirValues, setOirValues] = useState(Array(12).fill("0"));
-
   const [okkValues, setOkkValues] = useState(() => {
     if (rowData && rowData.monthlyData) {
       return rowData.monthlyData.map((data) => data.kolicina || 0);
@@ -138,7 +147,7 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
 
   useEffect(() => {
     if (rowData && rowData.monthlyData) {
-      console.log(rowData);
+      // console.log("Podatci za tablicu: ", rowData);
       const newPncValues = rowData.monthlyData.map((month) => month.PNC || "");
       const newVpcValues = rowData.monthlyData.map((month) => month.VPC || "");
       const newPprValues = rowData.monthlyData.map((month) => month.PPR || "");
@@ -151,6 +160,7 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
       setPprValues(newPprValues);
       setMsaValues(newMsaValues);
       setOirValues(newOirValues);
+      setOkkValues(10);
     }
   }, [rowData]);
 
@@ -169,7 +179,9 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
     if (rowData && rowData.monthlyData) {
       const initialOkkValues = rowData.monthlyData.map((data, index) => {
         const oirValue = parseFloat(oirValues[index] || 0);
-        return (parseFloat(data.kolicina || 0) + oirValue).toString();
+        const kolicinaValue = parseFloat(data.kolicina || 0);
+
+        return (kolicinaValue + oirValue).toString();
       });
       setOkkValues(initialOkkValues);
     }
@@ -285,11 +297,12 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
 
   const calculatePPKM = (vpc, plan, ppr) => {
     const numericPlan = parseFloat(plan);
-    const numericPpr = parseFloat(ppr) / 100;
+    const numericPpr = parseFloat(ppr) / 100; // Converting percentage to a decimal
     const numericVpc = parseFloat(vpc);
 
     if (!isNaN(numericPlan) && !isNaN(numericPpr) && !isNaN(numericVpc)) {
-      return (numericVpc * numericPlan * (1 - numericPpr)).toFixed(0);
+      // Applying the formula: (VPC * (1 - PPR)) * PPK
+      return (numericVpc * (1 - numericPpr) * numericPlan).toFixed(0);
     }
     return "";
   };
@@ -313,31 +326,44 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
       return "0";
     }
 
-    // Calculate the percentage as per the Excel formula
     const result =
       (numericPpkm / ((numericPnc + numericMsa) * numericPpk) - 1) * 100;
 
-    // Format the result to two decimal places
     return result.toFixed(2);
   };
 
-  const calculateOPpercentage = (opkm, ppkm, okk, og, oir) => {
-    const numericOpkm = parseFloat(opkm);
+  const calculatePMKM = (ppkm, pnc, msa, ppk) => {
     const numericPpkm = parseFloat(ppkm);
-    const numericOkk = parseFloat(okk);
-    const numericOg = parseFloat(og);
-    const numericOir = parseFloat(oir);
+    const numericPnc = parseFloat(pnc);
+    const numericMsa = parseFloat(msa);
+    const numericPpk = parseFloat(ppk);
 
-    // Check if the sum of OKK, OG, and OIR is 0, or if PPKM is 0 to prevent division by zero
-    if (numericOkk + numericOg + numericOir === 0 || numericPpkm === 0) {
-      return "0"; // Return an empty string as per the Excel formula condition
+    if (
+      isNaN(numericPpkm) ||
+      isNaN(numericPnc) ||
+      isNaN(numericMsa) ||
+      isNaN(numericPpk)
+    ) {
+      return "";
     }
 
-    // Perform the calculation according to the formula: OPKM / PPKM
-    // Ensure to handle cases where PPKM might be 0 to avoid division by zero
+    return (numericPpkm - (numericPnc + numericMsa) * numericPpk).toFixed(0);
+  };
+
+  const calculateOPpercentage = (opkm, ppkm, okk) => {
+    const numericOpkm = parseFloat(opkm);
+    const numericPpkm = parseFloat(ppkm);
+
+    if (okk === "") {
+      return "0";
+    }
+
+    if (numericPpkm === 0) {
+      return "0";
+    }
+
     const result = numericOpkm / numericPpkm;
 
-    // Check if the result is a finite number to avoid displaying Infinity or NaN
     if (isFinite(result)) {
       return (result * 100).toFixed(2);
     } else {
@@ -353,22 +379,17 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
     const numericOir = parseFloat(oir) || 0; // OIR
     const numericPnc = parseFloat(pnc) || 0; // PNC
     const numericMsa = parseFloat(msa) || 0; // MSA
-    const numericTgi = parseFloat(tgi) || 0; // TGI
-    const rateIncrease = 1.24; // This represents the 24% increase
+    const rateIncrease = 1.24; // This represents the 24% increase (1 + 24%)
 
-    if (numericOkk === "") {
+    if (numericOkk === 0) {
+      // Check if OKK is 0
       return "0";
-    } else if (numericUpk < 0) {
-      return (
-        numericOpkm -
-        numericOpkm * (numericPnc + numericMsa) -
-        numericOg * (numericPnc + numericMsa) * rateIncrease -
-        numericOir * (numericPnc + numericMsa)
-      ).toFixed(2);
     } else {
       return (
         numericOpkm -
-        (numericOkk * (numericPnc + numericMsa) + numericTgi)
+        numericUpk * (numericPnc + numericMsa) -
+        numericOg * (numericPnc + numericMsa) * rateIncrease -
+        numericOir * (numericPnc + numericMsa)
       ).toFixed(2);
     }
   };
@@ -376,52 +397,49 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
   const calculateUPK = (okk, og, oir) => {
     const numericOkk = parseFloat(okk || 0);
     const numericOg = parseFloat(og || 0);
-    const numericOir = parseFloat(oir || 0);
 
-    const sum = numericOkk + numericOg + numericOir;
+    const difference = numericOkk - numericOg;
 
     if (numericOkk === 0) {
       return "0";
     }
 
-    return sum;
+    return difference;
   };
 
-  const calculateOM_M_percentage = (opkm, okk, og, oir, pnc, msa) => {
+  const calculateOM_M_percentage = (omkm, okk, pnc, msa) => {
+    // console.log("VRIJEDNOSTI OMKM,OKK,PNC,MSA : ", omkm, okk, pnc, msa);
     const numericOkk = parseFloat(okk);
-    const numericOg = parseFloat(og);
-    const numericOir = parseFloat(oir);
+    const numericOmkm = parseFloat(omkm);
     const numericPnc = parseFloat(pnc);
     const numericMsa = parseFloat(msa);
-    const numericOpkm = parseFloat(opkm); // Changed from omkm to opkm
 
-    // First condition: if OKK is an empty string or zero, return "0"
-    if (numericOkk === "" || numericOkk === 0) {
-      return "0";
+    // Additional check to ensure PNC and MSA are numbers and their sum is not zero
+    if (
+      isNaN(numericPnc) ||
+      isNaN(numericMsa) ||
+      numericPnc + numericMsa === 0
+    ) {
+      return ""; // Return an empty string if PNC or MSA is not a number or their sum is zero
     }
 
-    // Second condition: if UPK (OKK + OG + OIR) is zero
-    const upk = numericOkk + numericOg + numericOir;
-    if (upk === 0) {
+    if (numericOkk === 0) {
+      return ""; // Return an empty string if OKK is 0
+    } else if (numericOkk < 0) {
       return (
-        ((numericOpkm / (numericOg + numericOir) - 1) * 100).toFixed(2) + "%"
-      );
-    }
-
-    // Third condition: if UPK is less than zero
-    if (upk < 0) {
-      return (
-        ((-numericOpkm / upk / (numericPnc + numericMsa) - 1) * 100).toFixed(
+        ((-numericOmkm / numericOkk / (numericPnc + numericMsa)) * 100).toFixed(
           2
         ) + "%"
-      );
+      ); // Formula when OKK is negative
+    } else if (numericOkk === "" || isNaN(numericOkk)) {
+      return "0"; // Return "0" if OKK is an empty string or not a number
+    } else {
+      return (
+        ((numericOmkm / numericOkk / (numericPnc + numericMsa)) * 100).toFixed(
+          2
+        ) + "%"
+      ); // Standard formula
     }
-
-    // Default formula if none of the above conditions are met
-    return (
-      ((numericOpkm / upk / (numericPnc + numericMsa) - 1) * 100).toFixed(2) +
-      "%"
-    );
   };
 
   const calculateTGI = (okk, og, oir, pnc, msa) => {
@@ -466,42 +484,43 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
       : "0%";
   };
 
-  const calculateOMPerKom = (omkm, okk, og, oir) => {
-    const numericOmkm = parseFloat(omkm);
-    const numericOkk = parseFloat(okk);
-    const numericOg = parseFloat(og);
-    const numericOir = parseFloat(oir);
-    const upk = numericOkk + numericOg + numericOir; // Assuming UPK is the sum of OKK, OG, and OIR
+  const calculateOMPerKom = (omkm, okk, og, oir, kolicina, orkk, opkm, upk) => {
+    // Convert all inputs to numbers, treating empty strings or undefined values as zero
+    const numericOmkm = parseFloat(omkm) || 0;
+    const numericOkk = parseFloat(okk) || 0;
+    const numericOg = parseFloat(og) || 0;
+    const numericOir = parseFloat(oir) || 0;
+    const numericKolicina = parseFloat(kolicina) || 0;
+    const numericOrkk = parseFloat(orkk) || 0;
+    const numericOpkm = parseFloat(opkm) || 0;
+    const numericUpk = parseFloat(upk) || 0;
 
-    // Check for blank or zero values
+    // Check if all values are effectively zero or blank
     if (!okk && !og && !oir) {
-      return "0"; // Return "" if OPK, OG, and OIR are all blank
-    } else if (upk === 0) {
-      return "0"; // Return "" if the sum of OKK, OPKM, OIR, and UPK is zero
-    } else if (upk < 0) {
-      // If UPK is less than zero, return -OMKM / OKK (avoid division by zero)
-      if (numericOkk !== 0 && isFinite(-numericOmkm / numericOkk)) {
-        return (-numericOmkm / numericOkk).toFixed(2);
-      } else {
-        return "0"; // Return "" if the result is not finite
-      }
-    } else if (upk === 0) {
-      // If UPK is zero, calculate OMKM / (OG + OIR) (avoid division by zero)
-      if (
-        numericOg + numericOir !== 0 &&
-        isFinite(numericOmkm / (numericOg + numericOir))
-      ) {
-        return (numericOmkm / (numericOg + numericOir)).toFixed(2);
-      } else {
-        return "0"; // Return "" if the result is not finite
-      }
+      return "";
+    }
+
+    // Calculate the sum of the related values
+    const sum =
+      numericKolicina +
+      numericOrkk +
+      numericOpkm +
+      numericOg +
+      numericOir +
+      numericUpk;
+
+    // Return an empty string if the sum is zero to avoid division by zero
+    if (sum === 0) {
+      return "";
+    }
+
+    // Apply conditional logic based on the value of OKK and OMKM
+    if (numericOkk < 0) {
+      return (-numericOmkm / numericOkk).toFixed(2);
+    } else if (numericOmkm < 0) {
+      return (numericOmkm / numericOkk).toFixed(2);
     } else {
-      // Otherwise, return OMKM / UPK
-      if (isFinite(numericOmkm / upk)) {
-        return (numericOmkm / upk).toFixed(2);
-      } else {
-        return "0"; // Return "" if the result is not finite
-      }
+      return (numericOmkm / numericOkk).toFixed(2);
     }
   };
 
@@ -610,13 +629,26 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
     }, 0);
   };
 
-  const calculateTotalOkk = () => {
-    const total = okkValues.reduce((acc, okkValue) => {
-      const numericValue = parseFloat(okkValue || 0);
-      return acc + (isNaN(numericValue) ? 0 : numericValue);
-    }, 0);
+  const calculateOikSum = () => {
+    return okkValues
+      .reduce((acc, value) => {
+        // Parse each value as a float and add to the accumulator
+        const numericValue = parseFloat(value || 0);
+        return acc + numericValue;
+      }, 0)
+      .toFixed(2); // Formatting the result to two decimal places
+  };
 
-    return total;
+  const calculateTotalOkk = () => {
+    if (rowData && rowData.monthlyData) {
+      const total = rowData.monthlyData.reduce((acc, data) => {
+        const numericValue = parseFloat(data.kolicina || 0);
+        return acc + (isNaN(numericValue) ? 0 : numericValue);
+      }, 0);
+
+      return total.toFixed(2); // Formatting the result to two decimal places if needed
+    }
+    return 0; // Return 0 if rowData or rowData.monthlyData is not available
   };
 
   const calculateTotalOrkK = () => {
@@ -726,82 +758,60 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
   const calculateTotalUPK = () => {
     let totalUPK = 0;
 
-    // Assuming monthlyData, okkValues, and oirValues are all arrays of equal length
-    // and correctly aligned to each month.
     for (let index = 0; index < monthlyData.length; index++) {
-      // Extract OKK, OG, and OIR values for the current month.
-      const okkValue = parseFloat(okkValues[index] || 0); // Default to 0 if undefined/null
-      const ogValue = parseFloat(monthlyData[index].gratis || 0); // Assuming .gratis holds the OG values
-      const oirValue = parseFloat(oirValues[index] || 0); // Use current OIR value from state
+      const okkValue = parseFloat(monthlyData[index].kolicina || 0);
+      const ogValue = parseFloat(monthlyData[index].gratis || 0);
 
-      // Calculate UPK for the month: UPK = OKK - OG - OIR
-      const upkValue = okkValue + ogValue + oirValue;
+      const upkValue = okkValue - ogValue;
 
-      // Accumulate total UPK
       totalUPK += upkValue;
     }
 
-    // Return the total UPK, ensuring to return it as a string with 2 decimal places for consistency
     return totalUPK.toFixed(2);
   };
 
   const calculateAverageOmMPercentage = () => {
-    const totalOpkm = calculateTotalOpkm(); // Assuming this function calculates the sum of OPKM
-    const totalOkk = calculateTotalOkk();
-    const totalOg = calculateTotalOg();
-    const totalOir = calculateTotalOir();
+    const totalOMKM = calculateTotalOmKm(); // This should calculate the total of OM KM
+    const oikSum = calculateOikSum(); // This should calculate the total OIK, make sure it returns a number
     const averagePnc = parseFloat(calculateAveragePnc());
     const averageMsa = parseFloat(calculateAverageMsa());
 
-    // Check if OKK total is an empty string or zero
-    if (totalOkk === "" || parseFloat(totalOkk) === 0) {
-      return "0";
+    // Implement the Excel formula provided
+    if (oikSum === 0 || oikSum === "") {
+      return "0"; // Return "0" if OIK sum is zero or an empty string
+    } else if (averagePnc + averageMsa === 0) {
+      return "0"; // Return "0" if the sum of PNCaverage and MSAaverage is zero to avoid division by zero
+    } else {
+      const result = (totalOMKM / oikSum / (averagePnc + averageMsa)) * 100;
+      return result.toFixed(2) + "%"; // Convert the result to a string with 2 decimal places followed by a percentage sign
     }
-
-    // Calculate UPK sum
-    const upkSum =
-      parseFloat(totalOkk) + parseFloat(totalOg) + parseFloat(totalOir);
-
-    // Implement conditions as per the Excel logic
-    if (upkSum === 0) {
-      return (
-        (
-          (parseFloat(totalOpkm) /
-            (parseFloat(totalOg) + parseFloat(totalOir)) -
-            1) *
-          100
-        ).toFixed(2) + "%"
-      );
-    }
-
-    if (upkSum < 0) {
-      return (
-        (
-          (-parseFloat(totalOpkm) / upkSum / (averagePnc + averageMsa) - 1) *
-          100
-        ).toFixed(2) + "%"
-      );
-    }
-
-    return (
-      (
-        (parseFloat(totalOpkm) / upkSum / (averagePnc + averageMsa) - 1) *
-        100
-      ).toFixed(2) + "%"
-    );
   };
 
   const calculateTotalTGI = () => {
-    // Assuming calculateAveragePnc, calculateTotalOg, and calculateTotalOir are defined elsewhere and correctly calculate the required values
-    const averagePNC = parseFloat(calculateAveragePnc());
-    const totalOG = parseFloat(calculateTotalOg());
-    const totalOIR = parseFloat(calculateTotalOir());
+    let totalTGI = 0;
 
-    // Applying the formula as per the Excel formula provided
-    const totalTGI = totalOG * averagePNC * 1.24 + totalOIR * averagePNC;
+    // Iterate through each month's data to calculate TGI for each and accumulate it
+    monthlyData.forEach((data, index) => {
+      // Calculate TGI for each month using existing values
+      const tgiValue = calculateTGI(
+        okkValues[index], // OKK value for the month
+        data.gratis, // OG value for the month
+        oirValues[index], // OIR value for the month
+        pncValues[index], // PNC value for the month
+        msaValues[index] // MSA value for the month
+      );
 
-    // If the calculated totalTGI equals 0, return an empty string; otherwise, return the calculated value
-    return totalTGI === 0 ? "" : totalTGI.toFixed(2); // toFixed(2) to match typical currency precision, adjust as needed
+      // Convert tgiValue to a number to ensure valid addition
+      const numericTgiValue = parseFloat(tgiValue);
+
+      // Add to total TGI if it's a valid number
+      if (!isNaN(numericTgiValue)) {
+        totalTGI += numericTgiValue;
+      }
+    });
+
+    // Return the summed total TGI, rounded and formatted as needed
+    return totalTGI.toFixed(2); // Adjust the precision as needed
   };
 
   const calculateOTPercentageAverage = () => {
@@ -857,34 +867,36 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
     const totalOG = calculateTotalOg();
     const totalOIR = calculateTotalOir();
     const totalOMKM = calculateTotalOmKm();
-    const upkSum =
-      parseFloat(totalOKK) + parseFloat(totalOG) + parseFloat(totalOIR);
+    const totalORKK = calculateTotalOrkK(); // Assuming you have a function to calculate this sum
+    const totalOPKM = calculateTotalOpkm(); // Sum of OPKM
+    const upkSum = calculateTotalUPK();
 
     // Check if OKK, OG, and OIR sums are all blank or zero
-    if (!totalOKK && !totalOG && !totalOIR) {
+    if (!totalOKK && !totalOG && !totalOIR && !totalORKK && !totalOPKM) {
       return "0";
     }
 
-    // Check if the sum of OKK, ORKK, OPKM, and UPK is zero
-    if (upkSum === 0) {
+    // Calculate the sum of all involved variables
+    const sum =
+      parseFloat(totalOKK) +
+      parseFloat(totalOG) +
+      parseFloat(totalOIR) +
+      parseFloat(totalORKK) +
+      parseFloat(totalOPKM) +
+      parseFloat(upkSum);
+
+    // Check if the computed sum is zero to avoid division by zero
+    if (sum === 0) {
       return "0";
     }
 
-    // Handling cases based on UPK values
-    if (upkSum < 0) {
-      // When UPK is less than zero, return negative OMKM / OKK (avoiding division by zero)
-      return totalOKK !== 0
-        ? (-parseFloat(totalOMKM) / parseFloat(totalOKK)).toFixed(2)
-        : "0";
-    } else if (upkSum === 0) {
-      // When UPK is zero, calculate OMKM / (OG + OIR)
-      const ogOirSum = parseFloat(totalOG) + parseFloat(totalOIR);
-      return ogOirSum !== 0
-        ? (parseFloat(totalOMKM) / ogOirSum).toFixed(2)
-        : "0";
+    // Handling cases based on the value of OMKM and OKK
+    if (parseFloat(totalOKK) < 0) {
+      return (-parseFloat(totalOMKM) / parseFloat(totalOKK)).toFixed(2);
+    } else if (parseFloat(totalOMKM) < 0) {
+      return (parseFloat(totalOMKM) / parseFloat(totalOKK)).toFixed(2);
     } else {
-      // Otherwise, calculate OMKM / UPK
-      return (parseFloat(totalOMKM) / upkSum).toFixed(2);
+      return (parseFloat(totalOMKM) / parseFloat(totalOKK)).toFixed(2);
     }
   };
 
@@ -921,74 +933,24 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
 
   const { monthlyData } = rowData;
 
-  const CellHeadingStyle = {
-    borderRight: "2px solid #0c1520",
-    borderBottom: "2px solid #0c1520",
-    borderTop: "2px solid #0c1520", // Added top border
-    width: "6rem",
-    // cursor: "help",
-    fontSize: "16px",
-    fontWeight: "bold",
-    padding: "0.1rem",
-    backgroundColor: "#7BA8FF",
-  };
-
-  const CellHeadingStyle2 = {
-    borderRight: "2px solid #0c1520",
-    borderBottom: "2px solid #0c1520",
-    borderTop: "2px solid #0c1520",
-    width: "6rem",
-    // cursor: "help",
-    fontSize: "16px",
-    fontWeight: "bold",
-    padding: "0.1rem",
-    backgroundColor: "#7bc9ff",
-  };
-
-  const CellHeadingStyle3 = {
-    borderRight: "2px solid #0c1520",
-    borderBottom: "2px solid #0c1520",
-    borderTop: "2px solid #0c1520",
-    borderLeft: "2px solid #0c1520",
-    width: "3rem",
-    // cursor: "help",
-    fontSize: "16px",
-    fontWeight: "bold",
-    padding: "0.1rem",
-    backgroundColor: "#7bc9ff",
-  };
-
-  const CellStyle = {
-    borderRight: "2px solid #0c1520",
-    borderBottom: "2px solid #0c1520",
-    borderLeft: "2px solid #0c1520",
-    fontSize: "15px",
-    width: "6rem",
-    minWidth: 30,
-    maxWidth: 30,
-    padding: "0.1rem",
-  };
-
   return (
     <div style={{ padding: "1%" }}>
       <TableContainer component={Paper} sx={{ marginTop: 2 }}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={CellHeadingStyle3} align="center">
-                God
-              </TableCell>
-              <Tooltip title="Mjesec">
-                <TableCell
-                  sx={{ ...CellHeadingStyle3, width: "2rem" }}
-                  align="center"
-                >
-                  MM
+              <Tooltip title="Mjesec Godina">
+                <TableCell sx={CellHeadingStyle3} align="center">
+                  MG
                 </TableCell>
               </Tooltip>
-              <TableCell sx={CellHeadingStyle} align="center">
-                PNC
-              </TableCell>
+
+              <Tooltip title="Nabavna cijena proizvoda">
+                <TableCell sx={CellHeadingStyle} align="center">
+                  PNC
+                </TableCell>
+              </Tooltip>
+
               <TableCell sx={CellHeadingStyle} align="center">
                 PM %
               </TableCell>
@@ -1009,6 +971,12 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
               </TableCell>
               <TableCell sx={CellHeadingStyle} align="center">
                 PM2 %
+              </TableCell>
+              <TableCell sx={CellHeadingStyle} align="center">
+                PMKM
+              </TableCell>
+              <TableCell sx={CellHeadingStyle} align="center">
+                OIK
               </TableCell>
               <TableCell sx={CellHeadingStyle2} align="center">
                 OKK
@@ -1052,13 +1020,10 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
           <TableBody>
             {monthlyData.map((data, index) => (
               <TableRow key={index}>
-                {/* GODINA */}
-                <TableCell align="center" sx={CellStyle}>
-                  {selectedYear}
-                </TableCell>
                 {/* MJESEC */}
                 <TableCell align="center" sx={CellStyle}>
                   {index + 1}
+                  {"."} {selectedYear}
                 </TableCell>
                 {/* PNC */}
                 <TableCell
@@ -1254,14 +1219,41 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
                     : "0"}
                 </TableCell>
 
+                {/* PMKM */}
+                <TableCell
+                  align="center"
+                  sx={{
+                    backgroundColor: "#FCDC2A",
+                    ...CellStyle,
+                  }}
+                >
+                  {calculatePMKM(
+                    ppkmValues[index],
+                    pncValues[index],
+                    msaValues[index],
+                    rowData.monthlyData[index].plan
+                  )}
+                </TableCell>
+
+                {/* OIK */}
+                <TableCell
+                  align="center"
+                  sx={{
+                    backgroundColor: "#FCDC2A ",
+                    ...CellStyle,
+                  }}
+                >
+                  {okkValues[index]
+                    ? formatNumberWithDots(okkValues[index])
+                    : ""}
+                </TableCell>
+
                 {/* OKK */}
                 <TableCell
                   align="center"
                   sx={{ backgroundColor: "#c8e8ff", ...CellStyle }}
                 >
-                  {okkValues[index]
-                    ? formatNumberWithDots(okkValues[index])
-                    : ""}
+                  {data.kolicina}
                 </TableCell>
 
                 {/* ORK K */}
@@ -1420,7 +1412,7 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
                   align="center"
                   sx={{
                     backgroundColor: "#98FB98",
-                    ...CellStyle,
+                    ...CellStyle2,
                   }}
                 >
                   <TextField
@@ -1456,7 +1448,7 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
                 >
                   {(() => {
                     const upkResult = calculateUPK(
-                      okkValues[index],
+                      data.kolicina,
                       data.gratis,
                       oirValues[index]
                     );
@@ -1475,47 +1467,85 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
                   align="center"
                   sx={{
                     ...CellStyle,
-                    backgroundColor: (() => {
-                      const opkm = data.promet; // Assuming data.promet is now considered as OPKM
-                      const omMPercentage = calculateOM_M_percentage(
-                        opkm,
-                        okkValues[index],
-                        data.gratis,
-                        oirValues[index],
+                    backgroundColor: "#c8e8ff",
+                    ...(calculatePmPercentage2(
+                      ppkmValues[index],
+                      pncValues[index],
+                      msaValues[index],
+                      data.plan
+                    ) !== "" &&
+                    parseFloat(
+                      calculatePmPercentage2(
+                        ppkmValues[index],
                         pncValues[index],
-                        msaValues[index]
-                      );
-                      return parseFloat(omMPercentage.replace("%", "")) < 0
-                        ? "#ff0000"
-                        : "#c8e8ff";
-                    })(),
-                    color: (() => {
-                      const opkm = data.promet;
-                      const omMPercentage = calculateOM_M_percentage(
-                        opkm,
-                        okkValues[index],
-                        data.gratis,
-                        oirValues[index],
-                        pncValues[index],
-                        msaValues[index]
-                      );
-                      return parseFloat(omMPercentage.replace("%", "")) < 0
-                        ? "#ffffff"
-                        : "";
-                    })(),
+                        msaValues[index],
+                        data.plan
+                      )
+                    ) >
+                      parseFloat(
+                        calculateOM_M_percentage(
+                          calculateOMKM(
+                            data.promet,
+                            calculateUPK(
+                              data.kolicina,
+                              data.gratis,
+                              oirValues[index]
+                            ),
+                            okkValues[index],
+                            data.gratis,
+                            oirValues[index],
+                            pncValues[index],
+                            msaValues[index],
+                            calculateTGI(
+                              okkValues[index],
+                              data.gratis,
+                              oirValues[index],
+                              pncValues[index],
+                              msaValues[index]
+                            )
+                          ),
+                          okkValues[index],
+                          pncValues[index],
+                          msaValues[index]
+                        )
+                      )
+                      ? {
+                          backgroundColor: "red",
+                          color: "white",
+                        }
+                      : {}),
                   }}
                 >
                   {(() => {
-                    const opkm = data.promet;
-                    const omMPercentage = calculateOM_M_percentage(
-                      opkm,
+                    const omkm = calculateOMKM(
+                      data.promet,
+                      calculateUPK(
+                        data.kolicina,
+                        data.gratis,
+                        oirValues[index]
+                      ),
                       okkValues[index],
                       data.gratis,
                       oirValues[index],
                       pncValues[index],
+                      msaValues[index],
+                      calculateTGI(
+                        okkValues[index],
+                        data.gratis,
+                        oirValues[index],
+                        pncValues[index],
+                        msaValues[index]
+                      )
+                    );
+
+                    const numericOmMPercentage = calculateOM_M_percentage(
+                      omkm,
+                      okkValues[index],
+                      pncValues[index],
                       msaValues[index]
                     );
-                    return omMPercentage;
+
+                    return numericOmMPercentage;
                   })()}
                 </TableCell>
 
@@ -1593,44 +1623,44 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
                   align="center"
                   sx={{ backgroundColor: "#c8e8ff", ...CellStyle }}
                 >
-                  {(() => {
-                    const upk = calculateUPK(
-                      data.kolicina,
-                      data.gratis,
-                      oirValues[index]
-                    );
-                    const tgi = calculateTGI(
-                      okkValues[index], // OKK value
-                      data.gratis, // OG value from 'gratis'
-                      oirValues[index], // OIR value
-                      pncValues[index], // PNC value
-                      msaValues[index] // MSA value
-                    );
-                    const omkm = calculateOMKM(
-                      data.promet,
-                      upk,
+                  {pncValues[index] &&
+                    calculateOMPerKom(
+                      calculateOMKM(
+                        data.promet,
+                        calculateUPK(
+                          data.kolicina,
+                          data.gratis,
+                          oirValues[index]
+                        ),
+                        okkValues[index],
+                        data.gratis,
+                        oirValues[index],
+                        pncValues[index],
+                        msaValues[index],
+                        calculateTGI(
+                          data.gratis,
+                          oirValues[index],
+                          pncValues[index]
+                        )
+                      ),
                       okkValues[index],
                       data.gratis,
                       oirValues[index],
-                      pncValues[index],
-                      msaValues[index],
-                      tgi
-                    );
-                    return calculateOMPerKom(
-                      omkm,
                       data.kolicina,
-                      data.gratis,
-                      oirValues[index]
-                    );
-                  })()}
+                      data.refKolicina, // Assuming ORKK (reference quantity) is taken from 'data.refKolicina'
+                      data.promet, // OPKM value is taken from 'data.promet'
+                      calculateUPK(
+                        data.kolicina,
+                        data.gratis,
+                        oirValues[index] // UPK calculation based on the current index
+                      )
+                    )}
                 </TableCell>
               </TableRow>
             ))}
 
             {/* TOTAL */}
             <TableRow>
-              <TableCell align="center" sx={CellStyle}></TableCell>
-
               <TableCell align="center" sx={CellStyle}></TableCell>
 
               {/* PNC AVERAGE */}
@@ -1689,6 +1719,14 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
               {/* PM2 % AVERAGE */}
               <TableCell align="center" sx={CellStyle}>
                 {calculateAveragePmPercentage2()}
+              </TableCell>
+
+              {/* PMKM SUM*/}
+              <TableCell align="center" sx={CellStyle}></TableCell>
+              {/* OIK SUM */}
+
+              <TableCell align="center" sx={CellStyle}>
+                {formatNumberWithDots(calculateOikSum())}
               </TableCell>
 
               {/* OKK SUM */}
@@ -1779,15 +1817,17 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
               <TableCell
                 align="center"
                 sx={{
-                  ...(calculateAverageOmMPercentage() < 0
+                  ...CellStyle,
+                  ...(parseFloat(calculateAveragePmPercentage2()) >
+                  parseFloat(calculateAverageOmMPercentage())
                     ? {
                         backgroundColor: "red",
                         color: "white",
                       }
-                    : CellStyle), // Apply original CellStyle if the condition is not met
+                    : {}),
                 }}
               >
-                {calculateAverageOmMPercentage()}%
+                {calculateAverageOmMPercentage()}
               </TableCell>
 
               {/* T/G/I SUM */}
@@ -1802,7 +1842,8 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
 
               {/* OMkom AVERAGE */}
               <TableCell align="center" sx={CellStyle}>
-                {calculateAverageOMPerKom()}
+                {pncValues.some((value) => value !== "") &&
+                  calculateAverageOMPerKom()}
               </TableCell>
             </TableRow>
           </TableBody>

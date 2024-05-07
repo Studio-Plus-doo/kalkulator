@@ -8,7 +8,7 @@ import { TableContext } from "../contexts/TableContext";
 
 export default function BasicSelect() {
   const { setSelectedTable } = useContext(TableContext);
-  const [table, setTable] = useState(2);
+  const [table, setTable] = useState(1); // Default PlaniranjeKolicina
 
   const handleChange = (event) => {
     setTable(event.target.value);
@@ -40,21 +40,11 @@ export default function BasicSelect() {
             },
           }}
         >
-          <MenuItem value={1} disabled={table === 1}>
-            Planiranje nabavke i prodaje
-          </MenuItem>
-          <MenuItem value={2} disabled={table === 2}>
-            Planiranje prometa
-          </MenuItem>
-          <MenuItem value={3} disabled={table === 3}>
-            Planiranje bruto marže
-          </MenuItem>
-          <MenuItem value={4} disabled={table === 4}>
-            Planiranje gratisa
-          </MenuItem>
-          <MenuItem value={5} disabled={table === 5}>
-            Koeficijent
-          </MenuItem>
+          <MenuItem value={1}>Planiranje količina</MenuItem>
+          <MenuItem value={2}>Planiranje prometa</MenuItem>
+          <MenuItem value={3}>Planiranje bruto marže</MenuItem>
+          <MenuItem value={4}>Planiranje gratisa</MenuItem>
+          <MenuItem value={5}>Koeficijent</MenuItem>
         </Select>
       </FormControl>
     </Box>

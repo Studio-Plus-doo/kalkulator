@@ -17,17 +17,21 @@ const SavedPlanSelection = ({ planData, onRowClick }) => {
 
   useEffect(() => {
     if (planData && planData.length > 0) {
-      setSelectedRowIndex(0); // Selects the first plan which is the latest
+      // console.log(planData);
+      setSelectedRowIndex(0);
       onRowClick(planData[0].redni_broj);
     }
   }, [planData]); //prije bilo plan data
 
   const handleRowClickModified = (index) => {
     const selectedRow = planData[index];
-    if (selectedRow) {
-      setSelectedRowIndex(index);
-      onRowClick(selectedRow.redni_broj);
+    if (!selectedRow || !selectedRow.redni_broj) {
+      console.error("Selected row data is incomplete or missing:", selectedRow);
+      // Optionally, handle this case with user feedback or a fallback state.
+      return;
     }
+    setSelectedRowIndex(index);
+    onRowClick(selectedRow.redni_broj);
   };
 
   const renderPNCChangeIcon = (currentPlan, nextPlan) => {
@@ -40,11 +44,31 @@ const SavedPlanSelection = ({ planData, onRowClick }) => {
     return null;
   };
 
+  const renderMSAChangeIcon = (currentPlan, nextPlan) => {
+    if (!nextPlan) return null;
+    if (currentPlan.avgMSA > nextPlan.avgMSA) {
+      return <NorthEastIcon sx={{ fontSize: 20 }} />;
+    } else if (currentPlan.avgMSA < nextPlan.avgMSA) {
+      return <SouthEastIcon sx={{ fontSize: 20 }} />;
+    }
+    return null;
+  };
+
   const renderVPCChangeIcon = (currentPlan, nextPlan) => {
     if (!nextPlan) return null;
     if (currentPlan.avgVPC > nextPlan.avgVPC) {
       return <NorthEastIcon sx={{ fontSize: 20 }} />;
     } else if (currentPlan.avgVPC < nextPlan.avgVPC) {
+      return <SouthEastIcon sx={{ fontSize: 20 }} />;
+    }
+    return null;
+  };
+
+  const renderPPRChangeIcon = (currentPlan, nextPlan) => {
+    if (!nextPlan) return null;
+    if (currentPlan.avgPPR > nextPlan.avgPPR) {
+      return <NorthEastIcon sx={{ fontSize: 20 }} />;
+    } else if (currentPlan.avgPPR < nextPlan.avgPPR) {
       return <SouthEastIcon sx={{ fontSize: 20 }} />;
     }
     return null;
@@ -94,7 +118,13 @@ const SavedPlanSelection = ({ planData, onRowClick }) => {
                 Izmjena PNC
               </TableCell>
               <TableCell align="left" sx={{ color: "white" }}>
+                Izmjena MSA
+              </TableCell>
+              <TableCell align="left" sx={{ color: "white" }}>
                 Izmjena VPC
+              </TableCell>
+              <TableCell align="left" sx={{ color: "white" }}>
+                Izmjena PPR
               </TableCell>
               <TableCell align="left" sx={{ color: "white" }}>
                 Datum i vrijeme
@@ -128,6 +158,17 @@ const SavedPlanSelection = ({ planData, onRowClick }) => {
                     {renderPNCChangeIcon(plan, planData[index + 1])}
                   </Box>
                 </TableCell>
+
+                <TableCell align="center">
+                  <Box
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                  >
+                    MSA{renderMSAChangeIcon(plan, planData[index + 1])}
+                  </Box>
+                </TableCell>
+
                 <TableCell align="center">
                   <Box
                     display="flex"
@@ -138,6 +179,18 @@ const SavedPlanSelection = ({ planData, onRowClick }) => {
                     {renderVPCChangeIcon(plan, planData[index + 1])}
                   </Box>
                 </TableCell>
+
+                <TableCell align="center">
+                  <Box
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                  >
+                    PPR
+                    {renderPPRChangeIcon(plan, planData[index + 1])}
+                  </Box>
+                </TableCell>
+
                 <TableCell align="left">
                   {new Date(plan.created_at).toLocaleDateString()} {plan.time} h
                 </TableCell>

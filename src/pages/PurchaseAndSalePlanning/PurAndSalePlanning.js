@@ -1,6 +1,7 @@
 import Paspheading from "./components/Paspheading";
 import ItemSelection from "./components/ItemSelection";
 import { TableProvider } from "./contexts/TableContext";
+import "./PurAndSalePlanning.css";
 import React, { useState } from "react";
 
 function PurchaseAndSalePlanning() {

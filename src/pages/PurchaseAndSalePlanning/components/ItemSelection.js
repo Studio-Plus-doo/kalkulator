@@ -1,11 +1,15 @@
 import React, { useContext, useState, useEffect } from "react";
+import AllItemsTable from "./AllItemsTable";
 import { Button } from "@mui/material";
-
 import PlaniranjePrometa from "./PlaniranjePrometa";
 import { TableContext } from "../contexts/TableContext";
 import SavedPlanSelection from "./SavedPlanSelection";
-
+import Select, { SelectChangeEvent } from "@mui/material/Select";
+import FormControl from "@mui/material/FormControl";
 import TableContainer from "@mui/material/TableContainer";
+import MenuItem from "@mui/material/MenuItem";
+import InputLabel from "@mui/material/InputLabel";
+import PlaniranjeKolicina from "./PlaniranjeKolicina";
 
 import {
   Table,
@@ -24,6 +28,11 @@ function ItemSelection({ selectedYear }) {
   const { selectedTable } = useContext(TableContext);
   const [selectedRowIndex, setSelectedRowIndex] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
+
+  useEffect(() => {
+    console.log("PlaniranjePrometa will render with rowData:", selectedRowData);
+  }, [selectedRowData]); // This effect runs whenever rowData changes
+
   const [lastSelectedRowSifraRobe, setLastSelectedRowSifraRobe] =
     useState(null);
   const [data, setData] = useState([]);
@@ -38,6 +47,18 @@ function ItemSelection({ selectedYear }) {
   const [inputNaziv, setInputNaziv] = useState("");
   const [inputGrupa, setInputGrupa] = useState("");
   const [inputNazivGrupe, setInputNazivGrupe] = useState("");
+  const [isTableVisible, setIsTableVisible] = useState(true);
+
+  const isRowSelected = selectedRowData !== null;
+
+  const [age, setAge] = useState("");
+
+  const [showPlaniranjePrometa, setShowPlaniranjePrometa] = useState(false);
+  const [showAllItemsTable, setShowAllItemsTable] = useState(true);
+
+  const handleChange = () => {
+    setAge("10");
+  };
 
   const rowStyle = (index) => ({
     borderBottom: "3px solid black",
@@ -92,19 +113,27 @@ function ItemSelection({ selectedYear }) {
     fetchData();
   }, []); // Dependency array remains the same
 
-  // useEffect to re-fetch row data when selectedYear changes, if a row is selected
   useEffect(() => {
     if (lastSelectedRowSifraRobe !== null) {
       handleRowClick(selectedRowIndex, { sifraRobe: lastSelectedRowSifraRobe });
     }
-  }, [selectedYear]); // Dependency array includes selectedYear
+
+    setSearchTermSifra("");
+    setSearchTermNaziv("");
+    setSearchTermGrupa("");
+    setSearchTermNazivGrupa("");
+  }, [selectedYear]);
 
   const handleRowClick = async (index, rowData) => {
-    console.log("ROWDATA je: ", rowData);
+    console.log("Row data je : ", rowData);
+
+    setShowAllItemsTable(false); // Close AllItemsTable when an item is clicked
+    setShowPlaniranjePrometa(true); // Show PlaniranjePrometa component
+
     setIsLoading(true);
     setSelectedRowIndex(index);
-    setSelectedRowData(null); // Reset the detailed data for the new selection
-    setPlanData([]); // Clear previously loaded plan data for the new selection
+    // setSelectedRowData(null);
+    setPlanData([]);
     setLastSelectedRowSifraRobe(rowData.sifraRobe);
 
     // Set input fields and search terms with clicked row's data to immediately trigger the filtering
@@ -129,7 +158,6 @@ function ItemSelection({ selectedYear }) {
 
     const planUrl = `https://apis.moda.ba/ERP-API/public/api/plan/${rowData.sifraRobe}/${selectedYear}`;
 
-    // First, fetch the plan data
     try {
       const planResponse = await fetch(planUrl, {
         method: "GET",
@@ -204,6 +232,7 @@ function ItemSelection({ selectedYear }) {
     } finally {
       setIsLoading(false);
     }
+    setShowPlaniranjePrometa(true);
   };
 
   const handleResetInputs = () => {
@@ -219,8 +248,8 @@ function ItemSelection({ selectedYear }) {
     setSearchTermGrupa("");
     setSearchTermNazivGrupa("");
 
-    setSelectedRowData(null); // Reset the detailed data for the new selection
-    setPlanData([]); // Clear previously loaded plan data for the new selection
+    setSelectedRowData(null);
+    setPlanData([]);
   };
 
   // Simplified for clarity - fetching initial data
@@ -256,10 +285,12 @@ function ItemSelection({ selectedYear }) {
     }
 
     const sifraRobe = selectedRowData?.rowDetails?.sifraRobe;
+    console.log("sifra robe je:", sifraRobe);
+    console.log("redni broj je: ", redniBroj);
 
     if (!sifraRobe) {
-      // console.error("Sifra Robe is not available.");
-      setIsLoading(false); // Make sure to stop the loading indicator on early return
+      console.log("No sifraRobe found in the selected row data.");
+      setIsLoading(false);
       return;
     }
 
@@ -267,9 +298,8 @@ function ItemSelection({ selectedYear }) {
 
     // Prepare fetch promises for all months
     const fetchPromises = Array.from({ length: 12 }, (_, i) => {
-      const month = i + 1;
-      const formattedMonth = month.toString().padStart(2, "0");
-      const url = `https://apis.moda.ba/ERP-API/public/api/plan/${sifraRobe}/${selectedYear}/${formattedMonth}/${redniBroj}`;
+      const month = i + 1; // January is 1, February is 2, ..., December is 12
+      const url = `https://apis.moda.ba/ERP-API/public/api/plan/${sifraRobe}/${selectedYear}/${month}/${redniBroj}`;
 
       return fetch(url, {
         method: "GET",
@@ -280,18 +310,16 @@ function ItemSelection({ selectedYear }) {
       })
         .then((response) => {
           if (!response.ok) {
-            throw new Error(
-              `Network response was not ok for month ${formattedMonth}.`
-            );
+            throw new Error(`Network response was not ok for month ${month}.`);
           }
           return response.json();
         })
         .then((planDetailsData) => {
-          updatedMonthlyData[i] = planDetailsData.data; // Adjust the index for 0-based array
+          updatedMonthlyData[i] = planDetailsData.data;
         })
         .catch((error) => {
           console.error(
-            `Error fetching plan details for month ${formattedMonth}: `,
+            `Error fetching plan details for month ${month}: `,
             error
           );
         });
@@ -349,40 +377,43 @@ function ItemSelection({ selectedYear }) {
 
   const filteredData = data.filter(
     (row) =>
-      (row.sifraRobe?.toLowerCase() || "").includes(
-        searchTermSifra.toLowerCase()
-      ) &&
-      (row.nazivRobe?.toLowerCase() || "").includes(
-        searchTermNaziv.toLowerCase()
-      ) &&
-      (row.nazivGrupe?.toLowerCase() || "").includes(
-        searchTermNazivGrupa.toLowerCase()
-      ) &&
-      (row.sifraGrupe?.toLowerCase() || "").includes(
-        searchTermGrupa.toLowerCase()
-      )
+      (row.sifraRobe
+        ? row.sifraRobe.toLowerCase().includes(searchTermSifra.toLowerCase())
+        : false) &&
+      (row.nazivRobe
+        ? row.nazivRobe.toLowerCase().includes(searchTermNaziv.toLowerCase())
+        : false) &&
+      (row.nazivGrupe
+        ? row.nazivGrupe
+            .toLowerCase()
+            .includes(searchTermNazivGrupa.toLowerCase())
+        : false) &&
+      (row.sifraGrupe
+        ? row.sifraGrupe.toLowerCase().includes(searchTermGrupa.toLowerCase())
+        : false)
   );
 
   return (
     <div>
       <div style={{ marginTop: "1%", marginLeft: "1%", display: "flex" }}>
-        <div>
-          <TableContainer style={{ width: "100%" }}>
-            <Table sx={{ minWidth: 650 }} aria-label="simple table">
-              <TableHead
-                style={{
-                  backgroundColor: "#0c1520",
-                }}
-              >
+        <div style={{ width: "60%" }}>
+          <TableContainer>
+            <Table aria-label="simple table">
+              <TableHead>
                 <TableRow>
-                  <TableCell style={{ width: "15%" }}>
+                  <TableCell
+                    style={{
+                      width: "500px",
+                      // borderRight: "1px solid #ffffff",
+                    }}
+                  >
                     <TextField
                       label="Šifra robe"
                       focused
                       fullWidth
                       variant="outlined"
                       size="small"
-                      placeholder="Pretražite po Šifri robe"
+                      // placeholder="Pretražite po Šifri robe"
                       value={inputSifra} // Bind state value
                       onChange={handleInputChange(
                         setInputSifra,
@@ -404,23 +435,21 @@ function ItemSelection({ selectedYear }) {
                         },
                       }}
                     />
-                    <Typography
-                      variant="subtitle1"
-                      gutterBottom
-                      style={{ color: "white" }}
-                    >
-                      {/* Šifra robe */}
-                    </Typography>
                   </TableCell>
 
-                  <TableCell style={{ width: "40%" }}>
+                  <TableCell
+                    style={{
+                      width: "25%",
+                      // borderRight: "1px solid #ffffff"
+                    }}
+                  >
                     <TextField
                       label="Naziv robe"
                       focused
                       fullWidth
                       variant="outlined"
                       size="small"
-                      placeholder="Pretražite po Nazivu robe"
+                      // placeholder="Pretražite po Nazivu robe"
                       value={inputNaziv} // Bind state value
                       onChange={handleInputChange(
                         setInputNaziv,
@@ -441,22 +470,27 @@ function ItemSelection({ selectedYear }) {
                           },
                         },
                       }}
-                    />
+                    />{" "}
                   </TableCell>
 
-                  <TableCell>
+                  <TableCell
+                    style={{
+                      width: "10%",
+                      // borderRight: "1px solid #ffffff"
+                    }}
+                  >
                     <TextField
-                      label="Grupa"
+                      label="Šifra grupe"
                       focused
                       fullWidth
                       variant="outlined"
                       size="small"
-                      placeholder="Pretražite po Grupi"
                       value={inputNazivGrupe} // Bind state value
                       onChange={handleInputChange(
                         setInputNazivGrupe,
                         setSearchTermNazivGrupa
                       )}
+                      onDoubleClick={() => setIsTableVisible(!isTableVisible)}
                       InputLabelProps={{
                         style: { color: "white" },
                       }}
@@ -472,18 +506,22 @@ function ItemSelection({ selectedYear }) {
                           },
                         },
                       }}
-                    />{" "}
+                    />
                   </TableCell>
 
-                  <TableCell>
-                    {" "}
+                  <TableCell
+                    style={{
+                      width: "10%",
+                      // borderRight: "1px solid #ffffff"
+                    }}
+                  >
                     <TextField
                       label="Nadgrupa"
                       focused
                       fullWidth
                       variant="outlined"
                       size="small"
-                      placeholder="Pretražite po nadgrupi"
+                      // placeholder="Pretražite po nadgrupi"
                       value={inputGrupa} // Bind state value
                       onChange={handleInputChange(
                         setInputGrupa,
@@ -507,7 +545,105 @@ function ItemSelection({ selectedYear }) {
                     />{" "}
                   </TableCell>
 
-                  <TableCell>
+                  <TableCell
+                    style={
+                      {
+                        // borderRight: "1px solid #ffffff",
+                      }
+                    }
+                  >
+                    <FormControl sx={{ minWidth: 120 }} size="small">
+                      <InputLabel
+                        id="demo-select-small-label"
+                        sx={{ color: "white" }}
+                      >
+                        BM
+                      </InputLabel>
+                      <Select
+                        labelId="demo-select-small-label"
+                        id="demo-select-small"
+                        value={age}
+                        label="Age"
+                        onChange={handleChange}
+                        sx={{
+                          color: "white", // Font color
+                          backgroundColor: "#0063cc", // Background color
+                          "& .MuiSvgIcon-root": {
+                            // Dropdown icon color
+                            color: "white",
+                          },
+                          "&:before": {
+                            // Underline color when not focused
+                            borderColor: "white",
+                          },
+                          "&:after": {
+                            // Underline color when focused
+                            borderColor: "white",
+                          },
+                        }}
+                      >
+                        <MenuItem value="">
+                          <em>None</em>
+                        </MenuItem>
+                        <MenuItem value={10}>Oliver Krešić</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </TableCell>
+
+                  <TableCell
+                    style={
+                      {
+                        // borderRight: "1px solid #ffffff",
+                      }
+                    }
+                  >
+                    <FormControl sx={{ minWidth: 80 }} size="small">
+                      <InputLabel
+                        id="demo-select-small-label"
+                        sx={{ color: "white" }}
+                      >
+                        Firma
+                      </InputLabel>
+                      <Select
+                        labelId="demo-select-small-label"
+                        id="demo-select-small"
+                        value={age}
+                        label="Age"
+                        onChange={handleChange}
+                        sx={{
+                          color: "white", // Font color
+                          backgroundColor: "#0063cc", // Background color
+                          "& .MuiSvgIcon-root": {
+                            // Dropdown icon color
+                            color: "white",
+                          },
+                          "&:before": {
+                            // Underline color when not focused
+                            borderColor: "white",
+                          },
+                          "&:after": {
+                            // Underline color when focused
+                            borderColor: "white",
+                          },
+                        }}
+                      >
+                        <MenuItem value="">
+                          <em>None</em>
+                        </MenuItem>
+                        <MenuItem value={10}>1</MenuItem>
+                        <MenuItem value={20}>2</MenuItem>
+                        <MenuItem value={30}>3</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </TableCell>
+
+                  <TableCell
+                    style={
+                      {
+                        // borderRight: "1px solid #ffffff",
+                      }
+                    }
+                  >
                     <Button
                       variant="contained"
                       onClick={handleResetInputs}
@@ -515,7 +651,7 @@ function ItemSelection({ selectedYear }) {
                         backgroundColor: "#0063cc",
                         color: "white",
                         fontWeight: "bold",
-                        height: "40px", // Set the height as desired
+                        height: "40px",
                       }}
                     >
                       Reset
@@ -527,16 +663,16 @@ function ItemSelection({ selectedYear }) {
           </TableContainer>
 
           <TableContainer
-            style={{ width: "100%" }}
+            // style={{ width: "100%" }}
             component={Paper}
             sx={{
               "& .MuiTableRow-root": {
                 // Apply styles to TableRow here, e.g., reducing height
-                height: 32, // Example height, adjust as needed
+                height: 28, // Example height, adjust as needed
               },
               "& .MuiTableCell-root": {
                 // Reduce padding to decrease space
-                padding: "4px 16px", // Adjust padding as needed
+                padding: "0px 5px", // Adjust padding as needed
               },
 
               borderRadius: 0,
@@ -558,42 +694,91 @@ function ItemSelection({ selectedYear }) {
               },
             }}
           >
-            <Table sx={{ minWidth: 650 }} aria-label="simple table">
-              <TableBody>
-                {filteredData.map((row, index) => (
-                  <TableRow
-                    key={row.id}
-                    onClick={() => handleRowClick(index, row)}
-                    sx={rowStyle(index)}
-                  >
-                    <TableCell
-                      component="th"
-                      scope="row"
-                      style={{ width: "15%" }}
-                    >
-                      {row.sifraRobe}
+            {isTableVisible && (
+              <Table stickyHeader aria-label="simple table">
+                <TableBody>
+                  <TableRow sx={{ backgroundColor: "#0063cc" }}>
+                    <TableCell sx={{ color: "white", whiteSpace: "nowrap" }}>
+                      Šifra robe
                     </TableCell>
-                    <TableCell
-                      sx={{
-                        maxWidth: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        width: "40%",
-                      }}
-                    >
-                      {row.nazivRobe}
+                    <TableCell sx={{ color: "white", whiteSpace: "nowrap" }}>
+                      Naziv robe
                     </TableCell>
-                    <TableCell>{row.nazivGrupe}</TableCell>
-                    <TableCell>{row.sifraGrupe}</TableCell>
-                    <TableCell>{row.sifraNadgrupe}</TableCell>
+                    <TableCell sx={{ color: "white", whiteSpace: "nowrap" }}>
+                      Šifra grupe
+                    </TableCell>
+                    <TableCell sx={{ color: "white", whiteSpace: "nowrap" }}>
+                      Naziv grupe
+                    </TableCell>
+                    <TableCell sx={{ color: "white", whiteSpace: "nowrap" }}>
+                      Šifra nadgrupe
+                    </TableCell>
+                    <TableCell></TableCell>
+                    <TableCell></TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+
+                  {filteredData.map((row, index) => (
+                    <TableRow
+                      key={row.id}
+                      onClick={() => handleRowClick(index, row)}
+                      sx={rowStyle(index)}
+                    >
+                      <TableCell
+                        component="th"
+                        scope="row"
+                        style={{
+                          width: "5%",
+                          borderRight: "1px solid #ffffff",
+                        }}
+                      >
+                        {row.sifraRobe}
+                      </TableCell>
+
+                      <TableCell
+                        sx={{
+                          maxWidth: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          width: "25%",
+                          borderRight: "1px solid #ffffff",
+                        }}
+                      >
+                        {row.nazivRobe}
+                      </TableCell>
+                      <TableCell
+                        sx={{ width: "10%", borderRight: "1px solid #ffffff" }}
+                      >
+                        {row.sifraGrupe}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          whiteSpace: "nowrap",
+                          width: "10%",
+                          borderRight: "1px solid #ffffff",
+                        }}
+                      >
+                        {row.nazivGrupe}
+                      </TableCell>
+                      <TableCell
+                        sx={{ width: "10%", borderRight: "1px solid #ffffff" }}
+                      >
+                        {row.sifraNadgrupe}
+                      </TableCell>
+                      <TableCell
+                        sx={{ width: "10%", borderRight: "1px solid #ffffff" }}
+                      ></TableCell>
+                      <TableCell
+                        sx={{ width: "10%", borderRight: "1px solid #ffffff" }}
+                      ></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </TableContainer>
         </div>
-        <div style={{ marginRight: "1%", marginLeft: "1%", width: "100%" }}>
+        <div style={{ marginRight: "1%", marginLeft: "1%", width: "40%" }}>
           <SavedPlanSelection
             planData={planData}
             onRowClick={handlePlanSelection}
@@ -618,17 +803,17 @@ function ItemSelection({ selectedYear }) {
         </div>
       ) : (
         <>
-          {/* {selectedTable === 5 && <Koeficijent />}
-          {selectedTable === 3 && <PlaniranjeBrutoMarze />} */}
-          {selectedTable === 2 && (
+          {isRowSelected && selectedTable === 1 && (
+            <PlaniranjeKolicina selectedYear={selectedYear} />
+          )}
+          {isRowSelected && selectedTable === 2 && (
             <PlaniranjePrometa
               rowData={selectedRowData}
               selectedYear={selectedYear}
               key={selectedRowIndex}
-              onSaved={reloadSavedPlans} // Passing the callback as a prop
+              onSaved={reloadSavedPlans}
             />
           )}
-          {/* {selectedTable === 1 && <PlaniranjeNabavkeIProdaje />} */}
         </>
       )}
     </div>
