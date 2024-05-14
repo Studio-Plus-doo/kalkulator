@@ -28,11 +28,6 @@ function ItemSelection({ selectedYear }) {
   const { selectedTable } = useContext(TableContext);
   const [selectedRowIndex, setSelectedRowIndex] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
-
-  useEffect(() => {
-    console.log("PlaniranjePrometa will render with rowData:", selectedRowData);
-  }, [selectedRowData]); // This effect runs whenever rowData changes
-
   const [lastSelectedRowSifraRobe, setLastSelectedRowSifraRobe] =
     useState(null);
   const [data, setData] = useState([]);
@@ -285,8 +280,8 @@ function ItemSelection({ selectedYear }) {
     }
 
     const sifraRobe = selectedRowData?.rowDetails?.sifraRobe;
-    console.log("sifra robe je:", sifraRobe);
-    console.log("redni broj je: ", redniBroj);
+    // console.log("sifra robe je:", sifraRobe);
+    // console.log("redni broj je: ", redniBroj);
 
     if (!sifraRobe) {
       console.log("No sifraRobe found in the selected row data.");

@@ -21,7 +21,9 @@ import {
 } from "./TableStyles";
 
 function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
-  // console.log("ROWDATA JE: ", rowData);
+  useEffect(() => {
+    console.log("Planiranje prometa rowData: ", rowData);
+  }, [rowData]); // Reacting to changes in input values
 
   const [pncValues, setPncValues] = useState(Array(12).fill(""));
   const [vpcValues, setVpcValues] = useState(Array(12).fill(""));
