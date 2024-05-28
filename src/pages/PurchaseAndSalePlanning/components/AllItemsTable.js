@@ -38,7 +38,7 @@ const AllItemsTable = ({ selectedYear }) => {
     const fetchData = async (month) => {
       try {
         const response = await fetch(
-          `https://apis.moda.ba/ERP-API/public/api/plan/sve/${selectedYear}/${month}`
+          `http://192.168.2.100/ERP-API/public/api/plan/sve/${selectedYear}/${month}`
         );
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

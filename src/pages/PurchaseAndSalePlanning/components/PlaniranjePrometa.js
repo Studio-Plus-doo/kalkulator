@@ -4,6 +4,7 @@ import TextField from "@mui/material/TextField";
 import { useEffect } from "react";
 import SavePlanButton from "./SavePlanButton";
 import {
+  Typography,
   Table,
   TableBody,
   TableCell,
@@ -21,10 +22,6 @@ import {
 } from "./TableStyles";
 
 function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
-  useEffect(() => {
-    console.log("Planiranje prometa rowData: ", rowData);
-  }, [rowData]); // Reacting to changes in input values
-
   const [pncValues, setPncValues] = useState(Array(12).fill(""));
   const [vpcValues, setVpcValues] = useState(Array(12).fill(""));
   const [ppkmValues, setPpkmValues] = useState(Array(12).fill(""));
@@ -42,7 +39,7 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
   });
 
   const handleSaveData = async () => {
-    const apiEndpoint = "https://apis.moda.ba/ERP-API/public/api/plan";
+    const apiEndpoint = "http://192.168.2.100/ERP-API/public/api/plan";
     const token = localStorage.getItem("userToken");
 
     if (!token) {
@@ -189,6 +186,9 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
     }
   }, [rowData, oirValues]);
 
+  const [tempOirValues, setTempOirValues] = useState(Array(12).fill("0"));
+  const [tempMsaValues, setTempMsaValues] = useState(Array(12).fill("0"));
+
   const handleInputChange = (value, rowIndex, type) => {
     let newValue = value.replace(/,/g, ".").replace(/[^0-9.]/g, "");
 
@@ -202,11 +202,13 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
     }
 
     if (type === "oir") {
-      const updatedOirValues = [...oirValues];
-      updatedOirValues[rowIndex] = newValue === "" ? "0" : newValue;
+      const updatedTempOirValues = [...tempOirValues];
+      updatedTempOirValues[rowIndex] = newValue;
+      setTempOirValues(updatedTempOirValues);
 
-      // Update okkValues when oir changes
-      // Assume the change in OIR should adjust the corresponding OKK value
+      const updatedOirValues = [...oirValues];
+      updatedOirValues[rowIndex] = newValue === "" ? "" : newValue;
+
       const oirChange =
         parseFloat(newValue) - parseFloat(oirValues[rowIndex] || 0);
       const updatedOkkValues = [...okkValues];
@@ -219,23 +221,19 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
       setOkkValues(updatedOkkValues);
     }
 
-    switch (type) {
-      case "oir": {
-        const updatedOirValues = [...oirValues];
-        const oldOirValue = parseFloat(updatedOirValues[rowIndex]) || 0;
-        const newOirValue = parseFloat(newValue) || 0;
-        updatedOirValues[rowIndex] = newValue === "" ? "0" : newValue;
+    if (type === "msa") {
+      const updatedTempMsaValues = [...tempMsaValues];
+      updatedTempMsaValues[rowIndex] = newValue;
+      setTempMsaValues(updatedTempMsaValues);
 
-        // Calculate the difference and update OKK
-        const difference = newOirValue - oldOirValue;
-        const updatedOkkValues = [...okkValues];
-        updatedOkkValues[rowIndex] =
-          (parseFloat(updatedOkkValues[rowIndex]) || 0) + difference;
-
-        setOirValues(updatedOirValues);
-        setOkkValues(updatedOkkValues); // Assuming you have a state for okkValues similar to oirValues
-        break;
+      const updatedMsaValues = [...msaValues];
+      for (let i = rowIndex; i < updatedMsaValues.length; i++) {
+        updatedMsaValues[i] = newValue;
       }
+      setMsaValues(updatedMsaValues);
+    }
+
+    switch (type) {
       case "pnc":
         const updatedPncValues = [...pncValues];
         for (let i = rowIndex; i < updatedPncValues.length; i++) {
@@ -257,24 +255,39 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
         }
         setPprValues(updatedPprValues);
         break;
-      case "msa":
-        const updatedMsaValues = [...msaValues];
-        for (let i = rowIndex; i < updatedMsaValues.length; i++) {
-          updatedMsaValues[i] = newValue !== "" ? newValue : "0";
-        }
-        setMsaValues(updatedMsaValues);
-        break;
       default:
         break;
     }
   };
 
+  const handleMsaBlur = (rowIndex) => {
+    const updatedMsaValues = [...msaValues];
+    const updatedTempMsaValues = [...tempMsaValues];
+
+    if (updatedTempMsaValues[rowIndex].trim() === "") {
+      for (let i = rowIndex; i < updatedMsaValues.length; i++) {
+        updatedMsaValues[i] = "0";
+        updatedTempMsaValues[i] = "0";
+      }
+    } else {
+      updatedMsaValues[rowIndex] = updatedTempMsaValues[rowIndex];
+    }
+
+    setMsaValues(updatedMsaValues);
+    setTempMsaValues(updatedTempMsaValues);
+  };
+
   const handleOirBlur = (rowIndex) => {
     const updatedOirValues = [...oirValues];
-    if (updatedOirValues[rowIndex].trim() === "") {
+    const updatedTempOirValues = [...tempOirValues];
+    if (updatedTempOirValues[rowIndex].trim() === "") {
       updatedOirValues[rowIndex] = "0";
-      setOirValues(updatedOirValues);
+      updatedTempOirValues[rowIndex] = "0";
+    } else {
+      updatedOirValues[rowIndex] = updatedTempOirValues[rowIndex];
     }
+    setOirValues(updatedOirValues);
+    setTempOirValues(updatedTempOirValues);
   };
 
   /*KALKULACIJE*/
@@ -941,81 +954,305 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
         <Table>
           <TableHead>
             <TableRow>
-              <Tooltip title="Mjesec Godina">
+              <Tooltip
+                title={<Typography fontSize={15}>Mjesec Godina</Typography>}
+                placement="top"
+              >
                 <TableCell sx={CellHeadingStyle3} align="center">
                   MG
                 </TableCell>
               </Tooltip>
 
-              <Tooltip title="Nabavna cijena proizvoda">
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Nabavna cijena proizvoda
+                  </Typography>
+                }
+                placement="top"
+              >
                 <TableCell sx={CellHeadingStyle} align="center">
                   PNC
                 </TableCell>
               </Tooltip>
 
-              <TableCell sx={CellHeadingStyle} align="center">
-                PM %
-              </TableCell>
-              <TableCell sx={CellHeadingStyle} align="center">
-                MSA
-              </TableCell>
-              <TableCell sx={CellHeadingStyle} align="center">
-                VPC
-              </TableCell>
-              <TableCell sx={CellHeadingStyle} align="center">
-                PPR
-              </TableCell>
-              <TableCell sx={CellHeadingStyle} align="center">
-                P.P.K
-              </TableCell>
-              <TableCell sx={CellHeadingStyle} align="center">
-                PPKM
-              </TableCell>
-              <TableCell sx={CellHeadingStyle} align="center">
-                PM2 %
-              </TableCell>
-              <TableCell sx={CellHeadingStyle} align="center">
-                PMKM
-              </TableCell>
-              <TableCell sx={CellHeadingStyle} align="center">
-                OIK
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                OKK
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                ORK K
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                OPKM
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                OP%
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                OM KM
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                OG
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                OIR
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                UPK
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                OM/M%
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                T/G/I
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                OT%
-              </TableCell>
-              <TableCell sx={CellHeadingStyle2} align="center">
-                OM/kom
-              </TableCell>
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Planirana marža za proizvod
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle} align="center">
+                  PM %
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Marketinška ulaganja za proizvod
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle} align="center">
+                  MSA
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Veleprodajna cijena proizvoda
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle} align="center">
+                  VPC
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Planirani prosječni rabat po kojem će se prodati
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle} align="center">
+                  PPR
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Planirana prodaja broja komada
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle} align="center">
+                  P.P.K
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Planirani prihod od prodaje ovog proizvoda s planiranim
+                    uključenim rabatom bez PDV-a
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle} align="center">
+                  PPKM
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Planirana marža od prodaje izražena u %
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle} align="center">
+                  PM2 %
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Planirana marža prodaje ovog proizvoda izražena u KM
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle} align="center">
+                  PMKM
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvaren ukupan izlaz robe u komadima s uključenim isteklim
+                    rokom
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle} align="center">
+                  OIK
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvaren ukupan izlaz robe u komadima ak2 program bez
+                    isteklog roka
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  OIK
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvareni ukupni izlaz u referentna količina
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  ORPK
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvareni promet u KM iz ak2 programa
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  OPKM
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvaren promet kroz planirani promet izražen u postotku
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  OP%
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvarena marža izražena u KM Ostvareni promet iz ak2 minus
+                    nabavna vrijednost robe
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  OM KM
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvareni gratis u komadima iz ak2 programa
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  OG
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvareni promet u komadima isteklog roka unosi se ručno iz
+                    ak2 programa
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  OIR
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ukupno ostvarena prodaja OIK iz ak2 minus Gratis iz ak2
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  UPK
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvarena marža kroz planirana marža izražena u %
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  OM/M%
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Trošak gratisa i isteklog roka izražen u KM
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  T/G/I
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Trošak gratisa i isteklog roka izražen u % u udjelu RUC-a
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  OT%
+                </TableCell>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  <Typography fontSize={15}>
+                    Ostvarena marža po jednom komadu
+                  </Typography>
+                }
+                placement="top"
+              >
+                <TableCell sx={CellHeadingStyle2} align="center">
+                  OM/kom
+                </TableCell>
+              </Tooltip>
             </TableRow>
           </TableHead>
 
@@ -1027,6 +1264,7 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
                   {index + 1}
                   {"."} {selectedYear}
                 </TableCell>
+
                 {/* PNC */}
                 <TableCell
                   align="center"
@@ -1084,6 +1322,7 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
                     onChange={(e) =>
                       handleInputChange(e.target.value, index, "msa")
                     }
+                    onBlur={() => handleMsaBlur(index)}
                     size="small"
                     InputProps={{
                       style: {
@@ -1129,6 +1368,7 @@ function PlaniranjePrometa({ rowData, selectedYear, onSaved }) {
                     }} // Adjust height of the TextField
                   />
                 </TableCell>
+
                 {/* PPR */}
                 <TableCell
                   align="center"

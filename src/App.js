@@ -11,6 +11,7 @@ import ProtectedRoute from "./auth/ProtectedRoute";
 import PurchaseAndSalePlanning from "./pages/PurchaseAndSalePlanning/PurAndSalePlanning";
 import SignIn from "./pages/SignIn/SignIn";
 import Logout from "./auth/Logout";
+import NeradniDani from "./pages/PurchaseAndSalePlanning/components/NeradniDani";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/neradnidani" element={<NeradniDani />} />
           {/* Logout route */}
 
           <Route path="/logout" element={<Logout />} />

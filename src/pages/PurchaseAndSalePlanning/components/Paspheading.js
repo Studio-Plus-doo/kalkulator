@@ -6,61 +6,49 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext";
 import { IconButton } from "@mui/material";
+import NaprednoPretrazivanjeModal from "./NaprednoPretrazivanjeModal"; // Import the new component
 
 function Paspheading({ onSelectYear }) {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
   const handleLogout = () => {
-    logout(); // This should clear the token from localStorage
-    navigate("/login"); // Redirect to login page after logout
+    logout();
+    navigate("/login");
   };
 
   return (
     <div className="as_header2">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            width: "60%",
+            width: "50%",
           }}
         >
           <div style={{ display: "flex", alignItems: "center" }}>
             <IoChevronBack style={{ height: "100%" }} />
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
                 marginLeft: "8px",
-                padding: "0 8px",
                 height: "100%",
+                fontSize: "18px",
               }}
             >
               Planiranje nabavke i prodaje
             </div>
           </div>
-
           <TableSelect />
+          <NaprednoPretrazivanjeModal />{" "}
+          {/* Replace the existing button with the modal trigger component */}
           <YearSelection onSelectYear={onSelectYear} />
         </div>
         <IconButton
           onClick={handleLogout}
           style={{ color: "white", cursor: "pointer", transform: "scale(1)" }}
           title="Odjavi se"
-          sx={{
-            "&:hover": {
-              transform: "scale(1.2)",
-              transition: "transform 0.3s ease-in-out",
-            },
-          }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             Odjavite se
@@ -71,4 +59,5 @@ function Paspheading({ onSelectYear }) {
     </div>
   );
 }
+
 export default Paspheading;
